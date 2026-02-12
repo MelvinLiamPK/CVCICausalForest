@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.env
+.venv
+venv/
+results/*.json
+results/*.csv
+results/*.png
+*.DS_Store
+.ipynb_checkpoints/
