@@ -2,7 +2,7 @@
 
 **Cross-Validation for Causal Inference with Heterogeneous Treatment Effects**
 
-Extends the [Yang, Athey, and Imbens (2025)](https://arxiv.org/abs/2501.04908) CVCI framework from linear/DML models to **Causal Forests**, enabling cross-validated combination of experimental and observational data for estimating **Conditional Average Treatment Effects (CATE)**.
+Extends the [Yang, Lin, Athey, Jordan, and Imbens (2025)](https://arxiv.org/abs/2511.00727) CVCI framework from linear/DML models to **Causal Forests**, enabling cross-validated combination of experimental and observational data for estimating **Conditional Average Treatment Effects (CATE)**.
 
 ## Key Idea
 
@@ -41,6 +41,6 @@ pip install -r requirements.txt
 
 ## References
 
-- Yang, S., Athey, S., & Imbens, G. (2025). *Cross-Validation for Causal Inference.*
+- Yang, X., Lin, L., Athey, S., Jordan, M. I., & Imbens, G. W. (2025). *Cross-Validated Causal Inference: a Modern Method to Combine Experimental and Observational Data.* arXiv:2511.00727.
 - Athey, S., Tibshirani, J., & Wager, S. (2019). *Generalized Random Forests.* Annals of Statistics.
 - Wager, S. & Athey, S. (2018). *Estimation and Inference of Heterogeneous Treatment Effects using Random Forests.* JASA.

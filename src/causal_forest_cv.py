@@ -1,7 +1,7 @@
 """
 CVCI with Causal Forests for Heterogeneous Treatment Effects
 
-Extends Yang, Athey, and Imbens (2025) CVCI framework to Causal Forests,
+Extends Yang, Lin, Athey, Jordan, and Imbens (2025) CVCI framework to Causal Forests,
 enabling cross-validated combination of experimental and observational data
 for Conditional Average Treatment Effect (CATE) estimation.
 
