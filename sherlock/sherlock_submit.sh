@@ -118,6 +118,7 @@ echo "============================================================"
 
 module purge
 module load python/3.11 2>/dev/null || module load python/3.9
+module load gcc/12 2>/dev/null || module load gcc/10 2>/dev/null || module load gcc 2>/dev/null
 
 if [ ! -d "$VENV_DIR" ]; then
     echo "ERROR: Virtual environment not found at ${VENV_DIR}"

@@ -16,7 +16,11 @@ PYTHON_VERSION="3.11"
 # --- Load modules ---
 module purge
 module load python/${PYTHON_VERSION} 2>/dev/null || module load python/3.9
+# Need modern GCC for packages that build from source (lightgbm, etc.)
+# Sherlock's system GCC 4.8.5 is too old for C11/C++14.
+module load gcc/12 2>/dev/null || module load gcc/10 2>/dev/null || module load gcc 2>/dev/null
 echo "Python: $(python3 --version)"
+echo "GCC:    $(gcc --version | head -1)"
 
 # --- Create virtual environment ---
 VENV_DIR="${HOME}/envs/${ENV_NAME}"
