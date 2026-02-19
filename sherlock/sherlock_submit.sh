@@ -127,7 +127,7 @@ if [ ! -d "$VENV_DIR" ]; then
 fi
 
 source "${VENV_DIR}/bin/activate"
-echo "Python: $(which python) ($(python --version))"
+echo "Python: $(which python3) ($(python3 --version))"
 
 # Create results and log directories
 mkdir -p "${RESULTS_DIR}"
@@ -142,10 +142,10 @@ cd "${CODE_DIR}"
 export PYTHONPATH="${CODE_DIR}/src:${PYTHONPATH}"
 
 echo ""
-echo "Running: python experiments/cf_simulations.py ${MODE} --axis ${AXIS} --cate ${CATE} --save-dir ${RESULTS_DIR}"
+echo "Running: python3 experiments/cf_simulations.py ${MODE} --axis ${AXIS} --cate ${CATE} --save-dir ${RESULTS_DIR}"
 echo ""
 
-python experiments/cf_simulations.py \
+python3 experiments/cf_simulations.py \
     ${MODE} \
     --axis "${AXIS}" \
     --cate "${CATE}" \

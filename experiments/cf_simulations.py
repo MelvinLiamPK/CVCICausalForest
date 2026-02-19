@@ -18,14 +18,14 @@ Reports both CATE MSE (pointwise) and ATE MSE.
 Saves full tau_hat(x) vectors for post-hoc metric computation.
 
 Usage:
-    python cf_simulations.py                          # Full run
-    python cf_simulations.py --quick                  # Quick test (~30 min)
-    python cf_simulations.py --ultra-quick             # Ultra fast (~5 min)
-    python cf_simulations.py --axis epsilon            # Only vary epsilon
-    python cf_simulations.py --axis nobs               # Only vary n_obs
-    python cf_simulations.py --axis confounding        # Only vary confounding
-    python cf_simulations.py --cate step               # Only step CATE
-    python cf_simulations.py --mode plot --results-dir X  # Plot saved results
+    python3 cf_simulations.py                          # Full run
+    python3 cf_simulations.py --quick                  # Quick test (~30 min)
+    python3 cf_simulations.py --ultra-quick             # Ultra fast (~5 min)
+    python3 cf_simulations.py --axis epsilon            # Only vary epsilon
+    python3 cf_simulations.py --axis nobs               # Only vary n_obs
+    python3 cf_simulations.py --axis confounding        # Only vary confounding
+    python3 cf_simulations.py --cate step               # Only step CATE
+    python3 cf_simulations.py --mode plot --results-dir X  # Plot saved results
 """
 
 import numpy as np
@@ -802,10 +802,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python cf_simulations.py --ultra-quick              # Fast test, all axes
-  python cf_simulations.py --quick --axis epsilon      # Quick, only vary epsilon
-  python cf_simulations.py --cate step --axis nobs     # Full, step CATE, vary n_obs
-  python cf_simulations.py --mode plot --results-dir simulation_results_cf/epsilon_step_...
+  python3 cf_simulations.py --ultra-quick              # Fast test, all axes
+  python3 cf_simulations.py --quick --axis epsilon      # Quick, only vary epsilon
+  python3 cf_simulations.py --cate step --axis nobs     # Full, step CATE, vary n_obs
+  python3 cf_simulations.py --mode plot --results-dir simulation_results_cf/epsilon_step_...
         """)
 
     parser.add_argument('--quick', action='store_true',
@@ -925,7 +925,7 @@ Examples:
         print(f"  {d}")
     print(f"\nTo re-plot:")
     for d in completed_dirs:
-        print(f"  python cf_simulations.py --mode plot --results-dir {d}")
+        print(f"  python3 cf_simulations.py --mode plot --results-dir {d}")
 
 
 if __name__ == '__main__':

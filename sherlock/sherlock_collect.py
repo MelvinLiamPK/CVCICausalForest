@@ -6,8 +6,8 @@ Checks which experiments completed, prints combined summary tables,
 and creates a combined multi-panel figure.
 
 Usage:
-    python sherlock_collect.py /path/to/results     # Check and summarize
-    python sherlock_collect.py /path/to/results --plot  # Also create combined plot
+    python3 sherlock_collect.py /path/to/results     # Check and summarize
+    python3 sherlock_collect.py /path/to/results --plot  # Also create combined plot
 """
 
 import os
@@ -73,7 +73,7 @@ def check_results(results_dir):
     if missing:
         print(f"\n  Missing experiments:")
         for axis, cate in missing:
-            print(f"    python cf_simulations.py --axis {axis} --cate {cate}")
+            print(f"    python3 cf_simulations.py --axis {axis} --cate {cate}")
 
     return found
 
