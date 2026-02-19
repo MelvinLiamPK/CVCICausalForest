@@ -33,14 +33,16 @@ source "${VENV_DIR}/bin/activate"
 echo "Activated: $(which python)"
 
 # --- Install dependencies ---
+# Pin versions to avoid build-from-source issues with Sherlock's old GCC (4.8.5).
+# These versions all have pre-built wheels for cp39-linux_x86_64.
 pip install --upgrade pip
 pip install \
-    numpy \
-    scipy \
-    scikit-learn \
-    econml \
-    matplotlib \
-    pandas
+    "numpy<2.1" \
+    "scipy<1.14" \
+    "scikit-learn<1.7" \
+    "econml<0.17" \
+    "matplotlib<3.10" \
+    "pandas<2.2"
 
 echo ""
 echo "=== Verify installation ==="
