@@ -18,14 +18,14 @@ Reports both CATE MSE (pointwise) and ATE MSE.
 Saves full tau_hat(x) vectors for post-hoc metric computation.
 
 Usage:
-    python cf_simulations.py                          # Full run
-    python cf_simulations.py --quick                  # Quick test (~30 min)
-    python cf_simulations.py --ultra-quick             # Ultra fast (~5 min)
-    python cf_simulations.py --axis epsilon            # Only vary epsilon
-    python cf_simulations.py --axis nobs               # Only vary n_obs
-    python cf_simulations.py --axis confounding        # Only vary confounding
-    python cf_simulations.py --cate step               # Only step CATE
-    python cf_simulations.py --mode plot --results-dir X  # Plot saved results
+    python3 cf_simulations.py                          # Full run
+    python3 cf_simulations.py --quick                  # Quick test (~30 min)
+    python3 cf_simulations.py --ultra-quick             # Ultra fast (~5 min)
+    python3 cf_simulations.py --axis epsilon            # Only vary epsilon
+    python3 cf_simulations.py --axis nobs               # Only vary n_obs
+    python3 cf_simulations.py --axis confounding        # Only vary confounding
+    python3 cf_simulations.py --cate step               # Only step CATE
+    python3 cf_simulations.py --mode plot --results-dir X  # Plot saved results
 """
 
 import numpy as np
@@ -38,15 +38,26 @@ from datetime import datetime
 
 # ============================================================
 # Import from project files
+# Searches: ./src, ../src, /mnt/project, PYTHONPATH
 # ============================================================
-sys.path.insert(0, '/mnt/project')
+_import_paths = [
+    os.path.join(os.path.dirname(__file__), '..', 'src'),  # ../src (from experiments/)
+    os.path.join(os.path.dirname(__file__), 'src'),         # ./src (from root)
+    os.path.dirname(__file__),                               # same directory
+    '/mnt/project',                                          # Claude environment
+]
+for _p in _import_paths:
+    _p = os.path.abspath(_p)
+    if os.path.isdir(_p) and _p not in sys.path:
+        sys.path.insert(0, _p)
+
 from data_generation import (
+    generate_heterogeneous_data,
     constant_cate, step_cate, nonlinear_cate
 )
 from causal_forest_cv import (
     CausalForestCVCI, cross_validation_cf
 )
-from econml.grf import CausalForest
 
 RANDOM_SEED = 2024
 
@@ -124,6 +135,29 @@ def get_ultra_quick_config():
     return cfg
 
 
+def get_prototype_config():
+    """
+    Prototype mode: absolute minimum to verify the full pipeline.
+    Runs 1 sim with 2 parameter values and tiny forests.
+    Should complete in ~30-60 seconds per axis per CATE function.
+    Use this to catch bugs before committing to long runs.
+    """
+    cfg = get_default_config()
+    cfg['n_sims'] = 1
+    cfg['lambda_bin'] = 5           # lambda in {0, 0.25, 0.5, 0.75, 1.0}
+    cfg['n_estimators'] = 40        # Divisible by 4, very small forest
+    cfg['min_samples_leaf'] = 10    # Larger leaves = faster
+    cfg['k_fold'] = 2               # Minimum CV folds
+    cfg['n_exp'] = 100              # Smaller experiment
+    cfg['epsilon_vals'] = np.array([0.0, 0.3, 0.6])        # 3 values
+    cfg['epsilon_n_obs'] = 300
+    cfg['nobs_vals'] = np.array([200, 1000])                # 2 values
+    cfg['nobs_epsilon'] = 0.1
+    cfg['confounding_vals'] = np.array([0.0, 1.0])          # 2 values
+    cfg['confounding_n_obs'] = 300
+    return cfg
+
+
 # ============================================================
 # JSON save/load utilities
 # ============================================================
@@ -166,12 +200,13 @@ def run_single_comparison(X_exp, A_exp, Y_exp, X_obs, A_obs, Y_obs,
     Run all four methods on one dataset and return results.
 
     Methods:
-      1. Exp-only CF (lambda=0): Causal Forest on experimental data only
-      2. Obs-only CF (lambda=1): Causal Forest on observational data only
-      3. Pooled CF: Naive concatenation with uniform weights
-      4. CVCI-CF (lambda*): Cross-validated optimal mixing
+      1. Exp-only CF (lambda=0)
+      2. Obs-only CF (lambda=1)
+      3. Pooled CF (uniform weights on concatenated data)
+      4. CVCI-CF (lambda* via cross-validation)
 
-    All methods use econml.grf.CausalForest (Athey-Wager style).
+    Returns dict with CATE predictions, MSEs, ATE estimates, and lambda*.
+    Saves full tau_hat vectors for post-hoc metrics.
     """
     true_ate = tau_func.true_ate
     n_est = cfg['n_estimators']
@@ -184,12 +219,14 @@ def run_single_comparison(X_exp, A_exp, Y_exp, X_obs, A_obs, Y_obs,
     # 1. Exp-only CF (lambda=0)
     # ----------------------------------------------------------
     try:
-        cf_exp = CausalForest(
+        model_exp = CausalForestCVCI(
             n_estimators=n_est, min_samples_leaf=min_leaf,
-            random_state=sim_seed, n_jobs=-1, inference=False,
+            random_state=sim_seed
         )
-        cf_exp.fit(X_exp, A_exp, Y_exp)
-        cate_exp = cf_exp.predict(X_exp).flatten()
+        model_exp.fit(X_exp, A_exp, Y_exp,
+                      X_exp[:0], A_exp[:0], Y_exp[:0],  # Empty obs
+                      lambda_=0.0)
+        cate_exp = model_exp.predict_cate(X_exp)
         ate_exp = float(np.mean(cate_exp))
 
         results['exp_only'] = {
@@ -207,12 +244,14 @@ def run_single_comparison(X_exp, A_exp, Y_exp, X_obs, A_obs, Y_obs,
     # 2. Obs-only CF (lambda=1)
     # ----------------------------------------------------------
     try:
-        cf_obs = CausalForest(
+        model_obs = CausalForestCVCI(
             n_estimators=n_est, min_samples_leaf=min_leaf,
-            random_state=sim_seed, n_jobs=-1, inference=False,
+            random_state=sim_seed
         )
-        cf_obs.fit(X_obs, A_obs, Y_obs)
-        cate_obs = cf_obs.predict(X_exp).flatten()  # Evaluate on exp data
+        model_obs.fit(X_obs[:0], A_obs[:0], Y_obs[:0],  # Empty exp
+                      X_obs, A_obs, Y_obs,
+                      lambda_=1.0)
+        cate_obs = model_obs.predict_cate(X_exp)  # Evaluate on exp data
         ate_obs = float(np.mean(cate_obs))
 
         results['obs_only'] = {
@@ -230,16 +269,29 @@ def run_single_comparison(X_exp, A_exp, Y_exp, X_obs, A_obs, Y_obs,
     # 3. Pooled CF (naive concatenation, uniform weights)
     # ----------------------------------------------------------
     try:
+        from econml.dml import CausalForestDML
+        from sklearn.ensemble import RandomForestRegressor
+
         X_all = np.vstack([X_exp, X_obs])
         A_all = np.concatenate([A_exp, A_obs])
         Y_all = np.concatenate([Y_exp, Y_obs])
 
-        cf_pool = CausalForest(
-            n_estimators=n_est, min_samples_leaf=min_leaf,
-            random_state=sim_seed, n_jobs=-1, inference=False,
+        cf_pool = CausalForestDML(
+            model_y=RandomForestRegressor(
+                n_estimators=n_est, min_samples_leaf=max(min_leaf, 5),
+                random_state=sim_seed, n_jobs=-1
+            ),
+            model_t=RandomForestRegressor(
+                n_estimators=n_est, min_samples_leaf=max(min_leaf, 5),
+                random_state=sim_seed, n_jobs=-1
+            ),
+            n_estimators=n_est,
+            min_samples_leaf=min_leaf,
+            random_state=sim_seed,
+            cv=3,
         )
-        cf_pool.fit(X_all, A_all, Y_all)
-        cate_pool = cf_pool.predict(X_exp).flatten()
+        cf_pool.fit(Y_all, A_all, X=X_all)
+        cate_pool = cf_pool.effect(X_exp).flatten()
         ate_pool = float(np.mean(cate_pool))
 
         results['pooled'] = {
@@ -255,13 +307,13 @@ def run_single_comparison(X_exp, A_exp, Y_exp, X_obs, A_obs, Y_obs,
 
     # ----------------------------------------------------------
     # 4. CVCI-CF (optimal lambda via cross-validation)
-    #    CV loss = outcome MSE on held-out experimental data
     # ----------------------------------------------------------
     try:
         Q_values, lambda_opt, model_cvci = cross_validation_cf(
             X_exp, A_exp, Y_exp, X_obs, A_obs, Y_obs,
             lambda_vals=lambda_vals,
             k_fold=cfg['k_fold'],
+            exp_loss_method='difference',
             stratified=True,
             random_state=sim_seed,
             n_estimators=n_est,
@@ -750,16 +802,19 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python cf_simulations.py --ultra-quick              # Fast test, all axes
-  python cf_simulations.py --quick --axis epsilon      # Quick, only vary epsilon
-  python cf_simulations.py --cate step --axis nobs     # Full, step CATE, vary n_obs
-  python cf_simulations.py --mode plot --results-dir simulation_results_cf/epsilon_step_...
+  python3 cf_simulations.py --ultra-quick              # Fast test, all axes
+  python3 cf_simulations.py --quick --axis epsilon      # Quick, only vary epsilon
+  python3 cf_simulations.py --cate step --axis nobs     # Full, step CATE, vary n_obs
+  python3 cf_simulations.py --mode plot --results-dir simulation_results_cf/epsilon_step_...
         """)
 
     parser.add_argument('--quick', action='store_true',
                         help='Quick test (~30 min)')
     parser.add_argument('--ultra-quick', action='store_true',
                         help='Ultra fast test (~5 min)')
+    parser.add_argument('--prototype', action='store_true',
+                        help='Prototype mode: 1 sim, tiny forests, ~30-60s per experiment. '
+                             'Use to verify pipeline before long runs.')
     parser.add_argument('--axis', choices=['epsilon', 'nobs', 'confounding', 'all'],
                         default='all', help='Which axis to simulate')
     parser.add_argument('--cate', choices=['constant', 'step', 'nonlinear', 'all'],
@@ -769,8 +824,9 @@ Examples:
     parser.add_argument('--results-dir', type=str, default=None,
                         help='Directory with results to plot')
     parser.add_argument('--save-dir', type=str,
-                        default='simulation_results_cf',
-                        help='Base directory for saving results')
+                        default=None,
+                        help='Directory for saving results (default: ../results/cf_simulations '
+                             'when run from experiments/, or ./results/cf_simulations from root)')
     parser.add_argument('--n-sims', type=int, default=None,
                         help='Override number of simulations')
 
@@ -785,7 +841,10 @@ Examples:
         return
 
     # --- Run mode ---
-    if args.ultra_quick:
+    if args.prototype:
+        cfg = get_prototype_config()
+        print("PROTOTYPE MODE (1 sim, tiny forests, ~30-60s per experiment)")
+    elif args.ultra_quick:
         cfg = get_ultra_quick_config()
         print("ULTRA-QUICK MODE")
     elif args.quick:
@@ -797,6 +856,18 @@ Examples:
 
     if args.n_sims is not None:
         cfg['n_sims'] = args.n_sims
+
+    # Resolve save directory
+    if args.save_dir is not None:
+        save_dir = args.save_dir
+    else:
+        # Auto-detect: if running from experiments/, go up to results/
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        if os.path.basename(script_dir) == 'experiments':
+            save_dir = os.path.join(script_dir, '..', 'results', 'cf_simulations')
+        else:
+            save_dir = os.path.join(script_dir, 'results', 'cf_simulations')
+        save_dir = os.path.abspath(save_dir)
 
     # Select CATE functions
     if args.cate == 'all':
@@ -813,7 +884,6 @@ Examples:
     if args.axis in ('all', 'confounding'):
         axes_to_run.append('confounding')
 
-    save_dir = args.save_dir
     os.makedirs(save_dir, exist_ok=True)
 
     # Print plan
@@ -855,7 +925,7 @@ Examples:
         print(f"  {d}")
     print(f"\nTo re-plot:")
     for d in completed_dirs:
-        print(f"  python cf_simulations.py --mode plot --results-dir {d}")
+        print(f"  python3 cf_simulations.py --mode plot --results-dir {d}")
 
 
 if __name__ == '__main__':
